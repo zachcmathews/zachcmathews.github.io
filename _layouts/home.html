@@ -34,20 +34,28 @@
         </ul>
         {% endif %}
 
-        <ul>
+        <p class="archive">Archives</p>
+        <ul class="archive">
           {% for post in site.posts %}
           <li><a href="{{ post.url }}">{{ post.title }}</a></li>
           {% endfor %}
         </ul>
       </header>
-      <section>
 
-      {{ content }}
-
+      {% for post in site.posts %}
+      <section class="home-excerpt">
+        <small>{{ post.date | date: "%-d %B %Y" }}</small>
+        <h1><a href="{{ post.url }}">{{ post.title }}</a></h1>
+        {{ post.excerpt }}
+        {% if post.tags %}
+          <small>tags: <em>{{ post.tags | join: "</em>, <em>" }}</em></small>
+        {% endif %}
       </section>
+      {% endfor %}
+
       <footer>
         {% if site.github.is_project_page %}
-        <p>This blog is maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a></p>
+        <p>This page is maintained by <a href="/about">{{ site.github.owner_name }}</a></p>
         {% endif %}
       </footer>
     </div>

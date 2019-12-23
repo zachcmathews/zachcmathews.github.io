@@ -4,7 +4,3 @@
 
 layout: home
 ---
-
-
-
-### Auto Reload Revit Keynotes
