@@ -5,6 +5,7 @@ description: >
   Blog focused on development of Revit add-ins. Automating repetitive tasks across
   multiple disciplines.
 show_excerpts: true
+remote_theme: thelehhman/plainwhite-jekyll
 
 # Minima date format
 # refer to http://shopify.github.io/liquid/filters/date/ if you want to customize this
