@@ -1,0 +1,182 @@
+I"f_<p>The filtering capabilities present in a stock Revit installation are lacking. Key components of an add-in that enables filtering based on family, type, and workset are discussed in this article. Releases and source code are available at <a href="https://github.com/zachcmathews/LTFilter">https://github.com/zachcmathews/LTFilter</a>.</p>
+
+<p><br /></p>
+<h3 id="boilerplate">Boilerplate</h3>
+<p>The first three lines are useful boilerplate code in any Revit add-in command and the last line is going to be useful in retrieving the workset of each selected element.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">UIApplication</span> <span class="n">uiapp</span> <span class="p">=</span> <span class="n">commandData</span><span class="p">.</span><span class="n">Application</span><span class="p">;</span>
+<span class="n">UIDocument</span> <span class="n">uidoc</span> <span class="p">=</span> <span class="n">uiapp</span><span class="p">.</span><span class="n">ActiveUIDocument</span><span class="p">;</span>
+<span class="n">Document</span> <span class="n">doc</span> <span class="p">=</span> <span class="n">uidoc</span><span class="p">.</span><span class="n">Document</span><span class="p">;</span>
+<span class="n">WorksetTable</span> <span class="n">worksetTable</span> <span class="p">=</span> <span class="n">doc</span><span class="p">.</span><span class="nf">GetWorksetTable</span><span class="p">();</span>
+</code></pre></div></div>
+
+<p><br /></p>
+<h3 id="retrieving-the-filterable-elements-and-parameters">Retrieving the filterable elements (and parameters)</h3>
+<p>In the following code blocks, we are gathering the selected elements and storing their id, category, family, type, and workset in a more friendly data structure.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">public</span> <span class="k">struct</span> <span class="nc">FilterableElement</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="n">ElementId</span> <span class="n">id</span><span class="p">;</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">category</span><span class="p">;</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">family</span><span class="p">;</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">type</span><span class="p">;</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">workset</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p><br /></p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Selection</span> <span class="n">selection</span> <span class="p">=</span> <span class="n">uidoc</span><span class="p">.</span><span class="n">Selection</span><span class="p">;</span>
+<span class="n">allElements</span> <span class="p">=</span> <span class="n">selection</span><span class="p">.</span><span class="nf">GetElementIds</span><span class="p">().</span><span class="nf">Select</span><span class="p">(</span><span class="n">id</span> <span class="p">=&gt;</span>
+<span class="p">{</span>
+    <span class="n">Element</span> <span class="n">element</span> <span class="p">=</span> <span class="n">doc</span><span class="p">.</span><span class="nf">GetElement</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
+
+    <span class="n">FilterableElement</span> <span class="n">filterableElement</span><span class="p">;</span>
+    <span class="n">filterableElement</span><span class="p">.</span><span class="n">id</span> <span class="p">=</span> <span class="n">id</span><span class="p">;</span>
+    <span class="n">filterableElement</span><span class="p">.</span><span class="n">category</span> <span class="p">=</span> <span class="n">element</span><span class="p">.</span><span class="n">Category</span><span class="p">.</span><span class="n">Name</span><span class="p">;</span>
+    <span class="n">filterableElement</span><span class="p">.</span><span class="n">family</span> <span class="p">=</span> <span class="n">element</span><span class="p">.</span><span class="nf">get_Parameter</span><span class="p">(</span><span class="n">BuiltInParameter</span><span class="p">.</span><span class="n">ELEM_FAMILY_PARAM</span><span class="p">).</span><span class="nf">AsValueString</span><span class="p">();</span>
+    <span class="n">filterableElement</span><span class="p">.</span><span class="n">type</span> <span class="p">=</span> <span class="n">element</span><span class="p">.</span><span class="nf">get_Parameter</span><span class="p">(</span><span class="n">BuiltInParameter</span><span class="p">.</span><span class="n">ELEM_TYPE_PARAM</span><span class="p">).</span><span class="nf">AsValueString</span><span class="p">();</span>
+    <span class="n">filterableElement</span><span class="p">.</span><span class="n">workset</span> <span class="p">=</span> <span class="n">worksetTable</span><span class="p">.</span><span class="nf">GetWorkset</span><span class="p">(</span><span class="n">element</span><span class="p">.</span><span class="n">WorksetId</span><span class="p">).</span><span class="n">Name</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">filterableElement</span><span class="p">;</span>
+<span class="p">}).</span><span class="nf">ToList</span><span class="p">();</span>
+<span class="n">filteredElements</span> <span class="p">=</span> <span class="n">allElements</span><span class="p">;</span>
+</code></pre></div></div>
+<p><br /></p>
+<h3 id="dealing-with-user-input">Dealing with user input</h3>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">public</span> <span class="k">struct</span> <span class="nc">Filters</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="n">categories</span><span class="p">;</span>
+    <span class="k">public</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="n">families</span><span class="p">;</span>
+    <span class="k">public</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="n">types</span><span class="p">;</span>
+    <span class="k">public</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="n">worksets</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>The following lists keep track of everything going on in the filter and the starting point in case we decide to clear a previously selected criterion.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">private</span> <span class="n">List</span><span class="p">&lt;</span><span class="n">FilterableElement</span><span class="p">&gt;</span> <span class="n">allElements</span><span class="p">;</span>           <span class="c1">// keep our starting point</span>
+<span class="k">private</span> <span class="n">List</span><span class="p">&lt;</span><span class="n">FilterableElement</span><span class="p">&gt;</span> <span class="n">filteredElements</span><span class="p">;</span>      <span class="c1">// keep track of elements that meet filter criteria</span>
+<span class="k">private</span> <span class="n">Filters</span> <span class="n">allFilters</span><span class="p">;</span>                            <span class="c1">// keep all unique parameter values</span>
+<span class="k">private</span> <span class="n">Filters</span> <span class="n">availableFilters</span><span class="p">;</span>                      <span class="c1">// remaining parameter values that can be filtered out</span>
+                                                       <span class="c1">// not the same as selected due to intersection with other filters</span>
+<span class="k">private</span> <span class="n">Filters</span> <span class="n">selectedFilters</span><span class="p">;</span>                       <span class="c1">// keep track of user-selected filters</span>
+</code></pre></div></div>
+<p>Each time the form’s tab is changed, the checked parameter values constitute a new filter criterion. To filter out the unchecked, we pass the checked parameter values back to the filter and wait for it to calculate which elements meet the criteria and which unique parameter values remain.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">private</span> <span class="k">void</span> <span class="nf">categoriesTab_Leave</span><span class="p">(</span><span class="kt">object</span> <span class="n">sender</span><span class="p">,</span> <span class="n">EventArgs</span> <span class="n">e</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="n">filteredList</span> <span class="p">=</span> <span class="n">categoriesCheckedListBox</span><span class="p">.</span><span class="n">CheckedItems</span><span class="p">.</span><span class="n">OfType</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;().</span><span class="nf">ToList</span><span class="p">();</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">filteredList</span><span class="p">.</span><span class="n">Count</span> <span class="p">&gt;</span> <span class="m">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">Filters</span> <span class="n">availableFilters</span> <span class="p">=</span> <span class="n">filter</span><span class="p">.</span><span class="nf">applyFilter</span><span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">categories</span><span class="p">,</span> <span class="n">filteredList</span><span class="p">);</span>
+        <span class="nf">drawForm</span><span class="p">(</span><span class="n">availableFilters</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>The following functions handle input from the form, clearing or applying a filter criterion as needed. After changes are applied, the new list of availableFilters is passed back to the form.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">public</span> <span class="n">Filters</span> <span class="nf">applyFilter</span><span class="p">(</span><span class="n">Tabs</span> <span class="n">tab</span><span class="p">,</span> <span class="n">List</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">&gt;</span> <span class="n">filteredList</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// Filter out the elements not matching the filter</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">categories</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">categories</span> <span class="p">=</span> <span class="n">filteredList</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">families</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">families</span> <span class="p">=</span> <span class="n">filteredList</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">types</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">types</span> <span class="p">=</span> <span class="n">filteredList</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">worksets</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">worksets</span> <span class="p">=</span> <span class="n">filteredList</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nf">filterElements</span><span class="p">();</span>
+
+    <span class="c1">// Return the available filters</span>
+    <span class="nf">determineAvailableFilters</span><span class="p">();</span>
+    <span class="k">return</span> <span class="n">availableFilters</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="n">Filters</span> <span class="nf">clearFilter</span><span class="p">(</span><span class="n">Tabs</span> <span class="n">tab</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">all</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Clear all filters</span>
+        <span class="n">selectedFilters</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">categories</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Clear category, family, and type filters</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">categories</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">categories</span><span class="p">;</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">families</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">families</span><span class="p">;</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">types</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">types</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">families</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Clear family and type filters</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">families</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">families</span><span class="p">;</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">types</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">types</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">types</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Clear type filter</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">types</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">types</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">Tabs</span><span class="p">.</span><span class="n">worksets</span> <span class="p">==</span> <span class="n">tab</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Clear workset filter</span>
+        <span class="n">selectedFilters</span><span class="p">.</span><span class="n">worksets</span> <span class="p">=</span> <span class="n">allFilters</span><span class="p">.</span><span class="n">worksets</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nf">filterElements</span><span class="p">();</span>
+
+    <span class="c1">// Return the available filters</span>
+    <span class="nf">determineAvailableFilters</span><span class="p">();</span>
+    <span class="k">return</span> <span class="n">availableFilters</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><br /></p>
+<h3 id="doing-the-filtering">Doing the filtering</h3>
+<p>After updating the selectedFilters list based on user input, we must recalculate which elements remain and then determine the remaining set of unique parameter values.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">private</span> <span class="k">void</span> <span class="nf">filterElements</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">filteredElements</span> <span class="p">=</span> <span class="n">allElements</span><span class="p">.</span><span class="nf">Where</span><span class="p">(</span><span class="n">filterableElement</span> <span class="p">=&gt;</span> <span class="p">{</span>
+        <span class="kt">bool</span> <span class="n">categoryMatches</span> <span class="p">=</span> <span class="n">selectedFilters</span><span class="p">.</span><span class="n">categories</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="n">filterableElement</span><span class="p">.</span><span class="n">category</span><span class="p">);</span>
+        <span class="kt">bool</span> <span class="n">familyMatches</span> <span class="p">=</span> <span class="n">selectedFilters</span><span class="p">.</span><span class="n">families</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="n">filterableElement</span><span class="p">.</span><span class="n">family</span><span class="p">);</span>
+        <span class="kt">bool</span> <span class="n">typeMatches</span> <span class="p">=</span> <span class="n">selectedFilters</span><span class="p">.</span><span class="n">types</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="n">filterableElement</span><span class="p">.</span><span class="n">type</span><span class="p">);</span>
+        <span class="kt">bool</span> <span class="n">worksetMatches</span> <span class="p">=</span> <span class="n">selectedFilters</span><span class="p">.</span><span class="n">worksets</span><span class="p">.</span><span class="nf">Contains</span><span class="p">(</span><span class="n">filterableElement</span><span class="p">.</span><span class="n">workset</span><span class="p">);</span>
+
+        <span class="k">return</span> <span class="n">categoryMatches</span> <span class="p">&amp;&amp;</span> <span class="n">familyMatches</span> <span class="p">&amp;&amp;</span> <span class="n">typeMatches</span> <span class="p">&amp;&amp;</span> <span class="n">worksetMatches</span><span class="p">;</span>
+    <span class="p">}).</span><span class="nf">ToList</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p><br /></p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">private</span> <span class="k">void</span> <span class="nf">determineAvailableFilters</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">availableFilters</span><span class="p">.</span><span class="n">categories</span> <span class="p">=</span> <span class="n">filteredElements</span>
+        <span class="p">.</span><span class="nf">Select</span><span class="p">(</span><span class="n">filterableElement</span> <span class="p">=&gt;</span> <span class="n">filterableElement</span><span class="p">.</span><span class="n">category</span><span class="p">)</span>
+        <span class="p">.</span><span class="nf">Distinct</span><span class="p">()</span>
+        <span class="p">.</span><span class="nf">ToList</span><span class="p">();</span>
+    <span class="n">availableFilters</span><span class="p">.</span><span class="n">families</span> <span class="p">=</span> <span class="n">filteredElements</span>
+        <span class="p">.</span><span class="nf">Select</span><span class="p">(</span><span class="n">filterableElement</span> <span class="p">=&gt;</span> <span class="n">filterableElement</span><span class="p">.</span><span class="n">family</span><span class="p">)</span>
+        <span class="p">.</span><span class="nf">Distinct</span><span class="p">()</span>
+        <span class="p">.</span><span class="nf">ToList</span><span class="p">();</span>
+    <span class="n">availableFilters</span><span class="p">.</span><span class="n">types</span> <span class="p">=</span> <span class="n">filteredElements</span>
+        <span class="p">.</span><span class="nf">Select</span><span class="p">(</span><span class="n">filterableElement</span> <span class="p">=&gt;</span> <span class="n">filterableElement</span><span class="p">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="p">.</span><span class="nf">Distinct</span><span class="p">()</span>
+        <span class="p">.</span><span class="nf">ToList</span><span class="p">();</span>
+    <span class="n">availableFilters</span><span class="p">.</span><span class="n">worksets</span> <span class="p">=</span> <span class="n">filteredElements</span>
+        <span class="p">.</span><span class="nf">Select</span><span class="p">(</span><span class="n">filterableElement</span> <span class="p">=&gt;</span> <span class="n">filterableElement</span><span class="p">.</span><span class="n">workset</span><span class="p">)</span>
+        <span class="p">.</span><span class="nf">Distinct</span><span class="p">()</span>
+        <span class="p">.</span><span class="nf">ToList</span><span class="p">();</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p><br /></p>
+<h3 id="selecting-the-elements-which-meet-all-criteria">Selecting the Elements which Meet all Criteria</h3>
+<p>After selecting the apply button, the elements which meet all criteria are selected in the Revit UI.</p>
+<div class="language-cs highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">selection</span><span class="p">.</span><span class="nf">SetElementIds</span><span class="p">(</span><span class="n">filteredElements</span><span class="p">.</span><span class="nf">Select</span><span class="p">(</span><span class="n">filterableElement</span> <span class="p">=&gt;</span> <span class="n">filterableElement</span><span class="p">.</span><span class="n">id</span><span class="p">).</span><span class="nf">ToList</span><span class="p">());</span>
+</code></pre></div></div>
+
+<p><br /></p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This is by no means an exhaustive tutorial on how to build the LTFilter add-in but a brief description of its key components. A complete copy of the source code is available at <a href="https://github.com/zachcmathews/LTFilter">https://github.com/zachcmathews/LTFilter</a>.</p>
+:ET
