@@ -1,8 +1,8 @@
 title: Zachary Mathews
 author: Zachary Mathews
-email: support@zacharymathews.com
+email: zachary.c.mathews+blog@gmail.com
 description: >
-  Blog focused on development of Revit add-ins. Automating repetitive tasks across
+  Blog focused on development of Revit add-ins and automating repetitive tasks across
   multiple disciplines.
 show_excerpts: true
 
@@ -13,8 +13,9 @@ sass:
 plainwhite:
   name: Zachary Mathews
   tagline: |
-    Electrical Intern.
+    Electrical Designer.
     Add-in Developer.
+    BIM Manager.
   date_format: "%b %-d, %Y"
   sitemap: true # set to true to generate sitemap.xml content
   disqus_shortname: zacharymathews
